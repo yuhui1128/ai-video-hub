@@ -213,6 +213,39 @@ body::before {
 }
 .modal input:focus { border-color: var(--accent); }
 
+.type-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.type-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.type-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.card .badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  color: var(--text-dim);
+}
+
 .modal .icon-preview {
   display: flex;
   gap: 12px;
@@ -338,7 +371,7 @@ body::before {
 </div>
 
 <div class="context-menu" id="ctxMenu">
-  <div class="menu-item" onclick="ctxOpen()">在新标签打开</div>
+  <div class="menu-item" onclick="ctxOpen()">打开</div>
   <div class="menu-item" onclick="ctxEdit()">编辑</div>
   <div class="menu-item danger" onclick="ctxDelete()">删除</div>
 </div>
@@ -351,8 +384,23 @@ body::before {
       <input type="text" id="inputName" placeholder="例如：豆包">
     </div>
     <div class="field">
+      <label>类型</label>
+      <div class="type-toggle">
+        <button class="type-btn active" id="btnTypeUrl" onclick="switchType('url')">网址</button>
+        <button class="type-btn" id="btnTypeApp" onclick="switchType('app')">本地程序</button>
+      </div>
+    </div>
+    <div class="field" id="fieldUrl">
       <label>网址</label>
       <input type="url" id="inputUrl" placeholder="https://...">
+    </div>
+    <div class="field" id="fieldApp" style="display:none">
+      <label>程序路径</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="inputAppPath" placeholder="例如：C:\Program Files\...\app.exe" style="flex:1">
+        <button class="icon-upload" onclick="document.getElementById('appFile').click()">浏览...</button>
+        <input type="file" id="appFile" accept=".exe,.lnk" style="display:none" onchange="handleAppFile(event)">
+      </div>
     </div>
     <div class="field">
       <label>图标</label>
@@ -413,6 +461,7 @@ var tools = loadTools();
 var ctxTarget = null;
 var editTarget = null;
 var editingIconData = null;
+var editingType = 'url';
 
 function render() {
   var grid = document.getElementById('grid');
@@ -444,8 +493,20 @@ function render() {
     card.appendChild(iconWrap);
     card.appendChild(nameEl);
 
+    if (t.type === 'app') {
+      var badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = '本地';
+      card.appendChild(badge);
+    }
+
     card.addEventListener('click', function(e) {
-      if (e.button === 0) window.open(t.url, '_blank');
+      if (e.button !== 0) return;
+      if (t.type === 'app') {
+        window.location.href = 'launch://run/' + encodeURIComponent(t.exePath);
+      } else {
+        window.open(t.url, '_blank');
+      }
     });
     card.addEventListener('contextmenu', function(e) {
       e.preventDefault();
@@ -453,7 +514,12 @@ function render() {
       showCtxMenu(e.clientX, e.clientY);
     });
     card.addEventListener('auxclick', function(e) {
-      if (e.button === 1) window.open(t.url, '_blank');
+      if (e.button !== 1) return;
+      if (t.type === 'app') {
+        window.location.href = 'launch://run/' + encodeURIComponent(t.exePath);
+      } else {
+        window.open(t.url, '_blank');
+      }
     });
 
     // Drag
@@ -512,7 +578,12 @@ function hideCtxMenu() {
 }
 function ctxOpen() {
   var t = tools.find(function(t) { return t.id === ctxTarget; });
-  if (t) window.open(t.url, '_blank');
+  if (!t) return;
+  if (t.type === 'app') {
+    window.location.href = 'launch://run/' + encodeURIComponent(t.exePath);
+  } else {
+    window.open(t.url, '_blank');
+  }
   hideCtxMenu();
 }
 function ctxEdit() {
@@ -529,6 +600,14 @@ function ctxDelete() {
 }
 
 // Modal
+function switchType(type) {
+  editingType = type;
+  document.getElementById('btnTypeUrl').classList.toggle('active', type === 'url');
+  document.getElementById('btnTypeApp').classList.toggle('active', type === 'app');
+  document.getElementById('fieldUrl').style.display = type === 'url' ? '' : 'none';
+  document.getElementById('fieldApp').style.display = type === 'app' ? '' : 'none';
+}
+
 function openModal(toolId) {
   editTarget = toolId || null;
   editingIconData = null;
@@ -538,15 +617,26 @@ function openModal(toolId) {
   if (toolId) {
     var t = tools.find(function(t) { return t.id === toolId; });
     document.getElementById('inputName').value = t.name;
-    document.getElementById('inputUrl').value = t.url;
+    editingType = t.type || 'url';
+    if (editingType === 'app') {
+      document.getElementById('inputAppPath').value = t.exePath || '';
+      document.getElementById('inputUrl').value = '';
+    } else {
+      document.getElementById('inputUrl').value = t.url || '';
+      document.getElementById('inputAppPath').value = '';
+    }
+    switchType(editingType);
     editingIconData = t.icon || null;
     updateIconPreview(t);
   } else {
     document.getElementById('inputName').value = '';
     document.getElementById('inputUrl').value = '';
+    document.getElementById('inputAppPath').value = '';
+    switchType('url');
     updateIconPreview(null);
   }
   document.getElementById('iconFile').value = '';
+  document.getElementById('appFile').value = '';
   document.getElementById('modalOverlay').classList.add('show');
   document.getElementById('inputName').focus();
 }
@@ -613,27 +703,62 @@ function clearIcon() {
   document.getElementById('iconFile').value = '';
 }
 
+function handleAppFile(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('inputAppPath').value = file.path || file.name;
+}
+
 document.getElementById('btnSave').addEventListener('click', function() {
   var name = document.getElementById('inputName').value.trim();
-  var url = document.getElementById('inputUrl').value.trim();
 
   if (!name) { toast('请输入工具名称'); return; }
-  if (!url) { toast('请输入网址'); return; }
-  if (!url.startsWith('http')) { toast('网址需以 http:// 或 https:// 开头'); return; }
 
-  if (editTarget) {
-    var t = tools.find(function(t) { return t.id === editTarget; });
-    t.name = name;
-    t.url = url;
-    t.icon = editingIconData;
+  if (editingType === 'app') {
+    var exePath = document.getElementById('inputAppPath').value.trim();
+    if (!exePath) { toast('请选择程序路径'); return; }
+
+    if (editTarget) {
+      var t = tools.find(function(t) { return t.id === editTarget; });
+      t.name = name;
+      t.type = 'app';
+      t.exePath = exePath;
+      t.url = '';
+      t.icon = editingIconData;
+    } else {
+      tools.push({
+        id: Date.now().toString(),
+        name: name,
+        type: 'app',
+        exePath: exePath,
+        url: '',
+        icon: editingIconData,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)]
+      });
+    }
   } else {
-    tools.push({
-      id: Date.now().toString(),
-      name: name,
-      url: url,
-      icon: editingIconData,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)]
-    });
+    var url = document.getElementById('inputUrl').value.trim();
+    if (!url) { toast('请输入网址'); return; }
+    if (!url.startsWith('http')) { toast('网址需以 http:// 或 https:// 开头'); return; }
+
+    if (editTarget) {
+      var t = tools.find(function(t) { return t.id === editTarget; });
+      t.name = name;
+      t.type = 'url';
+      t.url = url;
+      t.exePath = '';
+      t.icon = editingIconData;
+    } else {
+      tools.push({
+        id: Date.now().toString(),
+        name: name,
+        type: 'url',
+        url: url,
+        exePath: '',
+        icon: editingIconData,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)]
+      });
+    }
   }
 
   saveTools(tools);
