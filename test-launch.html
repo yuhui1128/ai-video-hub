@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Test Launch</title></head>
+<body>
+<h harnessing2>测试 launch 协议</h2>
+<p>点击下面的链接，看是否弹出"打开外部应用"提示：</p>
+<ul>
+  <li><a href="launch://run/C:\Windows\System32\notepad.exe">测试1: 记事本</a></li>
+  <li><a href="launch://run/C:\Windows\explorer.exe">测试2: 资源管理器</a></li>
+</ul>
+<p>如果以上不行，尝试 JavaScript 方式：</p>
+<button onclick="window.location.href='launch://run/C:\Windows\System32\notepad.exe'">JS: 启动记事本</button>
+</body>
+</html>

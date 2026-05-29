@@ -503,7 +503,7 @@ function render() {
     card.addEventListener('click', function(e) {
       if (e.button !== 0) return;
       if (t.type === 'app') {
-        window.location.href = 'launch://run/' + encodeURIComponent(t.exePath);
+        fetch('http://127.0.0.1:9876/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: t.exePath}) }).catch(function(){});
       } else {
         window.open(t.url, '_blank');
       }
@@ -516,7 +516,7 @@ function render() {
     card.addEventListener('auxclick', function(e) {
       if (e.button !== 1) return;
       if (t.type === 'app') {
-        window.location.href = 'launch://run/' + encodeURIComponent(t.exePath);
+        fetch('http://127.0.0.1:9876/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: t.exePath}) }).catch(function(){});
       } else {
         window.open(t.url, '_blank');
       }
@@ -580,7 +580,7 @@ function ctxOpen() {
   var t = tools.find(function(t) { return t.id === ctxTarget; });
   if (!t) return;
   if (t.type === 'app') {
-    window.location.href = 'launch://run/' + encodeURIComponent(t.exePath);
+    fetch('http://127.0.0.1:9876/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: t.exePath}) }).catch(function(){});
   } else {
     window.open(t.url, '_blank');
   }
