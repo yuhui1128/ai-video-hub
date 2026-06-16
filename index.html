@@ -397,10 +397,15 @@ body::before {
     <div class="field" id="fieldApp" style="display:none">
       <label>程序路径</label>
       <div style="display:flex;gap:8px;">
-        <input type="text" id="inputAppPath" placeholder="例如：C:\Program Files\...\app.exe" style="flex:1">
-        <button class="icon-upload" onclick="document.getElementById('appFile').click()">浏览...</button>
-        <input type="file" id="appFile" accept=".exe,.lnk" style="display:none" onchange="handleAppFile(event)">
+        <input type="text" id="inputAppPath" placeholder="例如：C:\Program Files\...\app.exe" style="flex:1" spellcheck="false">
+        <button class="icon-upload" onclick="document.getElementById('appFile').click()">选择...</button>
+        <input type="file" id="appFile" accept=".exe,.lnk,.bat,.cmd" style="display:none" onchange="handleAppFile(event)">
       </div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <span id="appPathStatus" style="font-size:11px;color:var(--text-dim);flex:1;line-height:24px;"></span>
+        <button class="icon-upload" onclick="verifyAppPath()" style="font-size:11px;">验证路径</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">提示：选择后路径自动填入，如有误可手动修改</div>
     </div>
     <div class="field">
       <label>图标</label>
@@ -503,7 +508,13 @@ function render() {
     card.addEventListener('click', function(e) {
       if (e.button !== 0) return;
       if (t.type === 'app') {
-        fetch('http://127.0.0.1:9876/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: t.exePath}) }).catch(function(){});
+        fetch('http://127.0.0.1:9876/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: t.exePath}) })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (!d.ok && d.error) toast('打开失败: ' + d.error);
+            else if (!d.ok) toast('本地服务未运行');
+          })
+          .catch(function() { toast('无法连接本地服务 (端口9876)'); });
       } else {
         window.open(t.url, '_blank');
       }
@@ -706,7 +717,43 @@ function clearIcon() {
 function handleAppFile(e) {
   var file = e.target.files[0];
   if (!file) return;
-  document.getElementById('inputAppPath').value = file.path || file.name;
+  var filePath = file.path || file.name;
+  document.getElementById('inputAppPath').value = filePath;
+  var statusEl = document.getElementById('appPathStatus');
+  if (file.path) {
+    statusEl.textContent = '已选择: ' + filePath;
+    statusEl.style.color = 'var(--text-dim)';
+    verifyAppPath();
+  } else {
+    statusEl.textContent = '⚠️ 浏览器无法获取完整路径，请手动输入或粘贴';
+    statusEl.style.color = '#f59e0b';
+  }
+}
+
+function verifyAppPath() {
+  var path = document.getElementById('inputAppPath').value.trim();
+  var statusEl = document.getElementById('appPathStatus');
+  if (!path) { statusEl.textContent = ''; return; }
+  statusEl.textContent = '验证中...';
+  statusEl.style.color = 'var(--text-dim)';
+  fetch('http://127.0.0.1:9876/verify', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: path}) })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok && d.exists) {
+        statusEl.textContent = '✓ 路径有效';
+        statusEl.style.color = '#10b981';
+      } else if (d.ok && !d.exists) {
+        statusEl.textContent = '✗ 文件不存在，请检查路径';
+        statusEl.style.color = '#ef4444';
+      } else {
+        statusEl.textContent = '验证失败: ' + (d.error || '服务未运行');
+        statusEl.style.color = '#ef4444';
+      }
+    })
+    .catch(function() {
+      statusEl.textContent = '无法连接本地服务 (端口9876)';
+      statusEl.style.color = '#ef4444';
+    });
 }
 
 document.getElementById('btnSave').addEventListener('click', function() {
